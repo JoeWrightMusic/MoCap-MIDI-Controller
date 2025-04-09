@@ -8,6 +8,12 @@
 
 
     OPERATION: 
+    Performing Mode: 
+    The device will send xyz data from the 6050 via midi cc. 
+    4 seperate streams of this xyz data can be sent out - triggered by the first
+    4 capsens buttons. Pressing capsens0 will send xyz data on MIDIcc 1,2,3; 
+    pressing capsens2 will send xyz data on MIDIcc 4,5,6 ...etc.
+
     Setup Mode:
     By pressing capsensor 4, you go into setup mode. this will let you map 
     MIDI values more easily without having continuous MIDI data across different 
@@ -17,8 +23,13 @@
     CC one at a time, to make mapping easier in software like Ableton Live.
     The workflow is like this: 
 
-    Capsens4 -> Enter Setup mode 
+    Capsens4 -> Enter Setup mode, send X values
     - pressing capsens 0,1,2,3 will send x values for each button's cc numbers
+    Press Capsens4 again -> send Y values 
+    - pressing capsens 0,1,2,3 will send y values for each button's cc numbers
+    Press Capsens4 again -> send Z values 
+    - pressing capsens 0,1,2,3 will send z values for each button's cc numbers
+    Press Capsens4 again -> back to performing mode
 */
 
 
@@ -226,32 +237,31 @@ void loop() {
 
   // check to see if we're in Setup Mode
   if(setupTouches){
-
+    //send data on first xyz stream - MIDIcc 1,2,3
     if(presses[0] == 1){
       if(setupCycle==0){controlChange(0, 1, x);flush=1;}
       if(setupCycle==1){controlChange(0, 2, y);flush=1;}
       if(setupCycle==2){controlChange(0, 3, z);flush=1;}
     }
-    
-
+    //send data on second xyz stream - MIDIcc 4,5,6
     if(presses[1] == 1){
       if(setupCycle==0){controlChange(0, 4, x);flush=1;}
       if(setupCycle==1){controlChange(0, 5, y);flush=1;}
       if(setupCycle==2){controlChange(0, 6, z);flush=1;}
     }
-
+    //send data on third xyz stream - MIDIcc 7,8,9
     if(presses[2] == 1){
       if(setupCycle==0){controlChange(0, 7, x);flush=1;}
       if(setupCycle==1){controlChange(0, 8, y);flush=1;}
       if(setupCycle==2){controlChange(0, 9, z);flush=1;}
     }
-
+    //send data on fourth xyz stream - MIDIcc 10,11,12
     if(presses[3] == 1){
       if(setupCycle==0){controlChange(0, 10, x);flush=1;}
       if(setupCycle==1){controlChange(0, 11, y);flush=1;}
       if(setupCycle==2){controlChange(0, 12, z);flush=1;}
     }
-
+    //setup mode button
     if(presses[4]==1){
       if(presses[4]!=setupPre){
         setupCycle++;
@@ -263,22 +273,22 @@ void loop() {
       setupPre=presses[4];
     } else {setupPre=presses[4];}
   } 
-  else {
-    if(presses[0] == 1){
-      if(x!=xPrev){
+  else {//if not in setup mode, run in performance mode...
+    if(presses[0] == 1){//if capsens0 is pressed
+      if(x!=xPrev){//send midicc if x has changed value
         controlChange(0, 1, x);
         flush = 1;
       }
-      if(y!=yPrev){
+      if(y!=yPrev){//send midicc if y has changed value
         controlChange(0, 2, y);
         flush = 1;
       }
-      if(z!=zPrev){
+      if(z!=zPrev){//send midicc if z has changed value... etc.
         controlChange(0, 3, z);
         flush = 1;
       }
     } 
-    if(presses[1] == 1){
+    if(presses[1] == 1){//if capsens1 is pressed
       if(x!=xPrev){
         controlChange(0, 4, x);
         flush = 1;
@@ -292,7 +302,7 @@ void loop() {
         flush = 1;
       }
     } 
-    if(presses[2] == 1){
+    if(presses[2] == 1){//if capsens2 is pressed
       if(x!=xPrev){
         controlChange(0, 7, x);
         flush = 1;
@@ -306,7 +316,7 @@ void loop() {
         flush = 1;
       }
     } 
-    if(presses[3] == 1){
+    if(presses[3] == 1){//if capsens3 is pressed
       if(x!=xPrev){
         controlChange(0, 10, x);
         flush = 1;
@@ -319,7 +329,7 @@ void loop() {
         controlChange(0, 12, z);
         flush = 1;
       }
-    } 
+    } //setup mode button
     if(presses[4] == 1){
       if(presses[4]!=setupPre){
         setupTouches = 1;
@@ -328,26 +338,30 @@ void loop() {
     } else {setupPre=presses[4];}
   }
 
-
+  //If we have midi cc to send, trigger the flush function
   if(flush){MidiUSB.flush();}
+
+  //Record previous xyz values
   xPrev=x;
   yPrev=y;
-  zPrev=z;  
-// REPORT TOUCHES
+  zPrev=z; 
+
+  // Uncomment the following blocks to see what's happening with the data...
+  // //REPORT TOUCHES
   // for(int i=0; i<5; i++){
   //   Serial.print(presses[i]);
   //   Serial.print("  ");
   // }
   // Serial.println("");
 
-// REPORT GYRO
+  // //REPORT GYRO
   // Serial.print(x);
   // Serial.print("   ");
   // Serial.print(y);
   // Serial.print("   ");
   // Serial.println(z);
   
-//REPORT LOGIC 
+  // //REPORT LOGIC 
   // Serial.print("presses4: ");
   // Serial.print(presses[4]);
   // Serial.print(",   setupPre:");
@@ -356,6 +370,4 @@ void loop() {
   // Serial.print(setupTouches);
   // Serial.print(",   setupCycle ");
   // Serial.println(setupCycle);
-  
-  delay(15);
 }
