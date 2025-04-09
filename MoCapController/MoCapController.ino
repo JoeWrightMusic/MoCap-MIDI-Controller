@@ -1,3 +1,28 @@
+/*
+    NOTE: 
+    In its current state, this code needs cleaning up! 
+    There are lots of repeated lines of code that can be cleaned up 
+    using arrays and for loops. 
+
+
+
+
+    OPERATION: 
+    Setup Mode:
+    By pressing capsensor 4, you go into setup mode. this will let you map 
+    MIDI values more easily without having continuous MIDI data across different 
+    control numbers getting in the way. 
+
+    When you first enter setup mode, you'll be sending the xyz values on MIDI 
+    CC one at a time, to make mapping easier in software like Ableton Live.
+    The workflow is like this: 
+
+    Capsens4 -> Enter Setup mode 
+    - pressing capsens 0,1,2,3 will send x values for each button's cc numbers
+*/
+
+
+
 // Libraries for the MPU6050, MPR121, Weighted Average Filter, & MIDIUSB
 // Install these from the libraries tab in the Arduino IDE
 #include <Adafruit_MPU6050.h>
@@ -11,70 +36,77 @@
 #ifndef _BV
 #define _BV(bit) (1 << (bit)) 
 #endif
-uint16_t lasttouched = 0;
-uint16_t currtouched = 0;
-int presses[] = { 0, 0, 0, 0, 0 };
+uint16_t lasttouched = 0;//last cap sensor touched
+uint16_t currtouched = 0;//current capsenseor touched
+int presses[] = { 0, 0, 0, 0, 0 };//array to store on/off state of capsensors
 
-
+// Library for MPR121
 Adafruit_MPR121 cap = Adafruit_MPR121();
+
+// Library for MPU6050
 Adafruit_MPU6050 mpu;
 
+// Weighted average filters for our gyro data
 Ewma xFilter(0.1); 
 Ewma yFilter(0.1); 
 Ewma zFilter(0.1); 
 
+// Variables for xyz values
+// for current value
 float x = 0;
 float y = 0;
 float z = 0;
-
+// for minimums
 float xMin = 0;
 float yMin = 0;
 float zMin = 0;
-
+// for maximums 
 float xMax = 0;
 float yMax = 0;
 float zMax = 0;
-
+// this variable will be 1 the first time the code runs
 int first = 1; 
-
+// previous xyz values 
 float xPrev = 0;
 float yPrev = 0;
 float zPrev = 0;
 
+// flush will be used to trigger MIDIusb.flush when cc messages are ready
 int flush = 0;
+
+// These variables control logic for mapping the controller
 int setupTouches = 1;
 int setupCycle = 0;
 int setupPre = 0;
 
+// Function for sending a MIDI CC message
 void controlChange(byte channel, byte control, byte value) {
   midiEventPacket_t event = {0x0B, 0xB0 | channel, control, value};
   MidiUSB.sendMIDI(event);
 }
 
-
+// Setup function, runs before the main loop starts
 void setup(void) {
+  // Setup serial communication
   Serial.begin(115200);
-  // Serial.println("HELLPOOOO");
+  // Wait a bit...
   delay(5000);
-  // while (!Serial)
-  //   delay(10); // will pause Zero, Leonardo, etc until serial console opens
-
-  // // Serial.println("Adafruit MPU6050 test!");
-
-  // // Try to initialize!
+ 
+  // // Try to initialize MPU6050!
   if (!mpu.begin()) {
-    // Serial.println("Failed to find MPU6050 chip");
+    //will wait forever until mpu connects
     while (1) {
       delay(10);
     }
   }
-  // // Serial.println("MPU6050 Found!");
-
+  // // Try to initialize MPR121
   if (!cap.begin(0x5A)) {
-    Serial.println("MPR121 not found, check wiring?");
+    //will wait forever until mpr121 connects
     while (1);
+    delay(10);
   }
 
+  // MPU SETTINGS
   mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
   // Serial.print("Accelerometer range set to: ");
   // switch (mpu.getAccelerometerRange()) {
@@ -134,29 +166,9 @@ void setup(void) {
   //   break;
   // }
 
-  // Serial.printl/n("");
-
-  // for(int i=0; i<50; i++){
-  //   controlChange(0, 64, 64);
-  //   MidiUSB.flush();
-  //   delay(200);
-  // }
-
-  // for(int i=0; i<50; i++){
-  //   controlChange(0, 65, 64);
-  //   MidiUSB.flush();
-  //   delay(200);
-  // }
-
-  // for(int i=0; i<50; i++){
-  //   controlChange(0, 66, 64);
-  //   MidiUSB.flush();
-  //   delay(200);
-  // }
-  delay(1000);
-}
-
+//Main loop - runs over and over
 void loop() {
+  //get capsense values
   currtouched = cap.touched();
   
   for (uint8_t i=0; i<5; i++) {
@@ -174,27 +186,32 @@ void loop() {
   
   // reset our state
   lasttouched = currtouched;
-  /* Get new sensor events with the readings */
+
+
+  /* Get new movement sensor events with the readings */
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
 
+  //The first time the loop runs, set the mins and maximums to whatever the sensor is at
   if (first) {
-    xMin = g.gyro.x;
+    xMin = a.acceleration.x;
     xMax = xMin;
 
-    yMin = g.gyro.y;
+    yMin = a.acceleration.y;
     yMax = yMin;
 
-    zMin = g.gyro.x;
+    zMin = a.acceleration.x;
     zMax = zMin;
-
+    //set first to 0 so that this section doesn't run again
     first = 0;
   }
 
+  // get xyz values from gyro (it says its reading acceleration but I think these are switched on cheap boards?)
   x = xFilter.filter(a.acceleration.x); 
   y = yFilter.filter(a.acceleration.y);
   z = zFilter.filter(a.acceleration.z);
 
+  // if new min or maximum, store the value
   if(x<=xMin){xMin = x;};
   if(x>=xMax){xMax = x;};
   if(y<=yMin){yMin = y;};
@@ -202,11 +219,12 @@ void loop() {
   if(z<=zMin){zMin = z;};
   if(z>=zMax){zMax = z;};
 
-
+  // scale xyz to midi range using min / max 
   x = (x-xMin) / (xMax-xMin) * 127;
   y = (y-yMin) / (yMax-yMin) * 127;
   z = (z-zMin) / (zMax-zMin) * 127;
 
+  // check to see if we're in Setup Mode
   if(setupTouches){
 
     if(presses[0] == 1){
