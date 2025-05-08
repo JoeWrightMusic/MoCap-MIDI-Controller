@@ -55,7 +55,7 @@ const int DEBUG = 1;
 uint16_t lasttouched = 0;//last cap sensor touched
 uint16_t currtouched = 0;//current capsenseor touched
 int presses[] = { 0, 0, 0, 0, 0 };//array to store on/off state of capsensors
-int pressThreshold = 5;
+int pressThreshold = 15;
 
 // Library for MPR121
 Adafruit_MPR121 cap = Adafruit_MPR121();
@@ -197,7 +197,8 @@ void loop() {
     }
     // if it *was* touched and still is, iterate!
     if ((currtouched & _BV(i)) && (lasttouched & _BV(i)) ) {
-      presses[i] = constrain(presses[i], 0, pressThreshold);
+      presses[i]++;
+      presses[i] = constrain( presses[i], 0, pressThreshold);
     }
     // if it *was* touched and now *isnt*, alert!
     if (!(currtouched & _BV(i)) && (lasttouched & _BV(i)) ) {
@@ -249,7 +250,7 @@ void loop() {
   //debug touches
   if(DEBUG){
    for(int i =0; i<5; i++){
-      Serial.print(presses[i]);
+      Serial.print((presses[i]==pressThreshold));
       Serial.print("   ");
    } 
    Serial.println("");
@@ -369,8 +370,8 @@ void loop() {
   // Uncomment the following blocks to see what's happening with the data...
   // //REPORT TOUCHES
   // for(int i=0; i<5; i++){
-  //   Serial.print(presses[i]);
-  //   Serial.print("  ");
+    // Serial.print(presses[i]);
+    // Serial.print("  ");
   // }
   // Serial.println("");
 
