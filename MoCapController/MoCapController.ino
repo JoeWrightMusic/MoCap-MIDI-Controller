@@ -47,9 +47,15 @@
 #ifndef _BV
 #define _BV(bit) (1 << (bit)) 
 #endif
+
+// debugging on/off...
+const int DEBUG = 1;
+
+
 uint16_t lasttouched = 0;//last cap sensor touched
 uint16_t currtouched = 0;//current capsenseor touched
 int presses[] = { 0, 0, 0, 0, 0 };//array to store on/off state of capsensors
+int pressThreshold = 5;
 
 // Library for MPR121
 Adafruit_MPR121 cap = Adafruit_MPR121();
@@ -176,6 +182,7 @@ void setup(void) {
   //   // Serial.println("5 Hz");
   //   break;
   // }
+}
 
 //Main loop - runs over and over
 void loop() {
@@ -187,6 +194,10 @@ void loop() {
     if ((currtouched & _BV(i)) && !(lasttouched & _BV(i)) ) {
       presses[i] = 1;
       // Serial.print(i); Serial.println(" touched");
+    }
+    // if it *was* touched and still is, iterate!
+    if ((currtouched & _BV(i)) && (lasttouched & _BV(i)) ) {
+      presses[i] = constrain(presses[i], 0, pressThreshold);
     }
     // if it *was* touched and now *isnt*, alert!
     if (!(currtouched & _BV(i)) && (lasttouched & _BV(i)) ) {
@@ -235,34 +246,43 @@ void loop() {
   y = (y-yMin) / (yMax-yMin) * 127;
   z = (z-zMin) / (zMax-zMin) * 127;
 
+  //debug touches
+  if(DEBUG){
+   for(int i =0; i<5; i++){
+      Serial.print(presses[i]);
+      Serial.print("   ");
+   } 
+   Serial.println("");
+  }
+
   // check to see if we're in Setup Mode
   if(setupTouches){
     //send data on first xyz stream - MIDIcc 1,2,3
-    if(presses[0] == 1){
+    if(presses[0] == pressThreshold){
       if(setupCycle==0){controlChange(0, 1, x);flush=1;}
       if(setupCycle==1){controlChange(0, 2, y);flush=1;}
       if(setupCycle==2){controlChange(0, 3, z);flush=1;}
     }
     //send data on second xyz stream - MIDIcc 4,5,6
-    if(presses[1] == 1){
+    if(presses[1] == pressThreshold){
       if(setupCycle==0){controlChange(0, 4, x);flush=1;}
       if(setupCycle==1){controlChange(0, 5, y);flush=1;}
       if(setupCycle==2){controlChange(0, 6, z);flush=1;}
     }
     //send data on third xyz stream - MIDIcc 7,8,9
-    if(presses[2] == 1){
+    if(presses[2] == pressThreshold){
       if(setupCycle==0){controlChange(0, 7, x);flush=1;}
       if(setupCycle==1){controlChange(0, 8, y);flush=1;}
       if(setupCycle==2){controlChange(0, 9, z);flush=1;}
     }
     //send data on fourth xyz stream - MIDIcc 10,11,12
-    if(presses[3] == 1){
+    if(presses[3] == pressThreshold){
       if(setupCycle==0){controlChange(0, 10, x);flush=1;}
       if(setupCycle==1){controlChange(0, 11, y);flush=1;}
       if(setupCycle==2){controlChange(0, 12, z);flush=1;}
     }
     //setup mode button
-    if(presses[4]==1){
+    if(presses[4]==pressThreshold){
       if(presses[4]!=setupPre){
         setupCycle++;
         if(setupCycle == 3){
@@ -274,7 +294,7 @@ void loop() {
     } else {setupPre=presses[4];}
   } 
   else {//if not in setup mode, run in performance mode...
-    if(presses[0] == 1){//if capsens0 is pressed
+    if(presses[0] == pressThreshold){//if capsens0 is pressed
       if(x!=xPrev){//send midicc if x has changed value
         controlChange(0, 1, x);
         flush = 1;
@@ -288,7 +308,7 @@ void loop() {
         flush = 1;
       }
     } 
-    if(presses[1] == 1){//if capsens1 is pressed
+    if(presses[1] == pressThreshold){//if capsens1 is pressed
       if(x!=xPrev){
         controlChange(0, 4, x);
         flush = 1;
@@ -302,7 +322,7 @@ void loop() {
         flush = 1;
       }
     } 
-    if(presses[2] == 1){//if capsens2 is pressed
+    if(presses[2] == pressThreshold){//if capsens2 is pressed
       if(x!=xPrev){
         controlChange(0, 7, x);
         flush = 1;
@@ -316,7 +336,7 @@ void loop() {
         flush = 1;
       }
     } 
-    if(presses[3] == 1){//if capsens3 is pressed
+    if(presses[3] == pressThreshold){//if capsens3 is pressed
       if(x!=xPrev){
         controlChange(0, 10, x);
         flush = 1;
@@ -330,7 +350,7 @@ void loop() {
         flush = 1;
       }
     } //setup mode button
-    if(presses[4] == 1){
+    if(presses[4] == pressThreshold){
       if(presses[4]!=setupPre){
         setupTouches = 1;
       }
